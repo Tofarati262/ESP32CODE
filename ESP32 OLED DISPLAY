@@ -1,0 +1,59 @@
+#include <U8g2lib.h>
+
+// Initialize U8g2 library with SSD1306 72x40 display
+U8G2_SSD1306_72X40_ER_F_SW_I2C u8g2(U8G2_R0, /* clock=*/6, /* data=*/5, /* reset=*/U8X8_PIN_NONE);
+
+int sequence = 0;  // Variable to track the animation sequence
+unsigned long lastUpdate = 0;
+const unsigned long delayTime = 100; // Reduced delay to make the animation faster (100ms)
+
+void setup() {
+  // Initialize the display
+  u8g2.begin();
+  u8g2.clearBuffer();
+  u8g2.setFont(u8g2_font_6x10_tr);  // Use a small font
+  pinMode(8, OUTPUT);  // Set pin 8 as output for buzzer
+}
+
+void loop() {
+  unsigned long currentTime = millis();
+
+  // Check if enough time has passed to update the display
+  if (currentTime - lastUpdate >= delayTime) {
+    // Call the appropriate animation frame based on the sequence number
+    if (sequence == 0) {
+      drawSpinner("/");
+    } else if (sequence == 1) {
+      drawSpinner("-");
+    } else if (sequence == 2) {
+      drawSpinner("\\");
+    } else if (sequence == 3) {
+      drawSpinner("|");
+    }
+
+    // Move to the next sequence
+    sequence++;
+    if (sequence > 3) {
+      sequence = 0; // Reset the sequence to loop through all frames
+    }
+
+    // Update the last time the display was updated
+    lastUpdate = currentTime;
+  }
+
+  beep();  // Call beep function
+}
+
+// Function to draw the spinner symbol on the display
+void drawSpinner(const char* symbol) {
+  u8g2.clearBuffer();          // Clear the internal memory
+  u8g2.drawStr(40, 10, symbol); // Display the symbol in the center
+  u8g2.sendBuffer();           // Transfer internal memory to the display
+}
+
+void beep() {
+  digitalWrite(8, HIGH);       // Turn the buzzer ON (beep)
+  delay(50);                  // Wait for 50 milliseconds (adjust to control the beep duration)
+  digitalWrite(8, LOW);        // Turn the buzzer OFF
+  delay(50);                  // Wait for 50 milliseconds before next beep
+}
