@@ -12,7 +12,8 @@ void setup() {
   u8g2.begin();
   u8g2.clearBuffer();
   u8g2.setFont(u8g2_font_6x10_tr);  // Use a small font
-  pinMode(8, OUTPUT);  // Set pin 8 as output for buzzer
+  pinMode(0, OUTPUT);
+
 }
 
 void loop() {
@@ -41,7 +42,7 @@ void loop() {
     lastUpdate = currentTime;
   }
 
-  beep();  // Call beep function
+  beep();
 }
 
 // Function to draw the spinner symbol on the display
@@ -52,8 +53,5 @@ void drawSpinner(const char* symbol) {
 }
 
 void beep() {
-  digitalWrite(8, HIGH);       // Turn the buzzer ON (beep)
-  delay(50);                  // Wait for 50 milliseconds (adjust to control the beep duration)
-  digitalWrite(8, LOW);        // Turn the buzzer OFF
-  delay(50);                  // Wait for 50 milliseconds before next beep
+  digitalWrite(0, HIGH);       // Turn the buzzer ON (beep)                  // Wait for 50 milliseconds before next beep
 }
