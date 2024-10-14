@@ -1,57 +1,121 @@
 #include <U8g2lib.h>
+#include <Keypad.h>
 
 // Initialize U8g2 library with SSD1306 72x40 display
 U8G2_SSD1306_72X40_ER_F_SW_I2C u8g2(U8G2_R0, /* clock=*/6, /* data=*/5, /* reset=*/U8X8_PIN_NONE);
 
-int sequence = 0;  // Variable to track the animation sequence
-unsigned long lastUpdate = 0;
-const unsigned long delayTime = 100; // Reduced delay to make the animation faster (100ms)
+const byte ROWS = 5; // Five rows
+const byte COLS = 3; // Three columns
+
+char keys[ROWS][COLS] = {
+  {'R', '1', '2'},
+  {'+', '3', '4'},
+  {'S', '5', '6'},
+  {'M', '7', '8'},
+  {'D', '9', 'E'}  // 'E' for triggering the calculation
+};
+
+byte rowPins[ROWS] = {3, 4, 5, 6, 7}; // Connect to the row pinouts of the keypad
+byte colPins[COLS] = {0, 1, 2}; // Connect to the column pinouts of the keypad
+
+Keypad keypad = Keypad(makeKeymap(keys), rowPins, colPins, ROWS, COLS);
+
+String currentkey = "";  // To store the current key sequence
+char lastOp = '+';       // To track the last operator
+int result = 0;          // To store the cumulative result
 
 void setup() {
   // Initialize the display
   u8g2.begin();
   u8g2.clearBuffer();
   u8g2.setFont(u8g2_font_6x10_tr);  // Use a small font
-  pinMode(0, OUTPUT);
-
+  
+  Serial.begin(9600);
 }
 
 void loop() {
-  unsigned long currentTime = millis();
+  // Read the keypad outside of the display update check
+  char key = keypad.getKey(); // Read the key pressed
 
-  // Check if enough time has passed to update the display
-  if (currentTime - lastUpdate >= delayTime) {
-    // Call the appropriate animation frame based on the sequence number
-    if (sequence == 0) {
-      drawSpinner("/");
-    } else if (sequence == 1) {
-      drawSpinner("-");
-    } else if (sequence == 2) {
-      drawSpinner("\\");
-    } else if (sequence == 3) {
-      drawSpinner("|");
+  // Check if a key was pressed
+  if (key) {
+    Serial.print("Key Pressed: ");
+    Serial.println(key);
+    
+    if (key == 'R') {
+      // Reset everything when 'R' is pressed
+      currentkey = "";
+      result = 0;
+      lastOp = '+';
+      displayKey(String(result));
+    } else if (key == 'E') {  // Trigger calculation when 'E' is pressed
+      performCalculation();
+      displayKey(String(result));  // Show the result on the display
+    } else if (currentkey.length() < 10) {
+      // Append other key presses (digits and operators) to the current key
+      currentkey += key;
+      displayKey(currentkey);
     }
+  }
+}
 
-    // Move to the next sequence
-    sequence++;
-    if (sequence > 3) {
-      sequence = 0; // Reset the sequence to loop through all frames
+// Function to perform arithmetic calculations
+void performCalculation() {
+  String numberStr = "";  // Temporary string to build numbers
+
+  for (int i = 0; i < currentkey.length(); i++) {
+    char c = currentkey.charAt(i);
+
+    // Check if the character is a digit
+    if (isdigit(c)) {
+      numberStr += c;  // Append digit to the number string
+    } else {
+      // If we hit an operator, perform the last operation with the previous number
+      if (numberStr.length() > 0) {
+        int number = numberStr.toInt(); // Convert the number string to an integer
+        performOperation(result, lastOp, number); // Perform the operation
+        numberStr = "";  // Clear the number string for the next number
+      }
+      lastOp = c;  // Update the last operator to the current one
     }
-
-    // Update the last time the display was updated
-    lastUpdate = currentTime;
   }
 
-  beep();
+  // Handle the last number (after the loop)
+  if (numberStr.length() > 0) {
+    int number = numberStr.toInt();
+    performOperation(result, lastOp, number);
+  }
+
+  currentkey = "";  // Clear currentkey after performing the calculation
 }
 
-// Function to draw the spinner symbol on the display
-void drawSpinner(const char* symbol) {
-  u8g2.clearBuffer();          // Clear the internal memory
-  u8g2.drawStr(40, 10, symbol); // Display the symbol in the center
-  u8g2.sendBuffer();           // Transfer internal memory to the display
+// Function to perform an operation
+void performOperation(int& res, char op, int number) {
+  switch (op) {
+    case '+':
+      res += number;
+      break;
+    case '-':
+      res -= number;
+      break;
+    case 'M': // Use 'M' for multiply
+      res *= number;
+      break;
+    case 'D': // Use 'D' for divide
+      if (number != 0) {
+        res /= number; // Avoid division by zero
+      } else {
+        Serial.println("Error: Division by zero");
+      }
+      break;
+    default:
+      break; // Ignore unknown operators
+  }
 }
 
-void beep() {
-  digitalWrite(0, HIGH);       // Turn the buzzer ON (beep)                  // Wait for 50 milliseconds before next beep
+// Function to display the key pressed
+void displayKey(String key) {
+  u8g2.clearBuffer();              // Clear the internal memory
+  u8g2.drawStr(5, 10, key.c_str()); // Display the key value below
+  u8g2.sendBuffer();               // Transfer internal memory to the display
 }
