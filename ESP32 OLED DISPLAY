@@ -8,11 +8,11 @@ const byte ROWS = 5; // Five rows
 const byte COLS = 3; // Three columns
 
 char keys[ROWS][COLS] = {
-  {'R', '1', '2'},
-  {'+', '3', '4'},
-  {'S', '5', '6'},
-  {'M', '7', '8'},
-  {'D', '9', 'E'}  // 'E' for triggering the calculation
+  {'1', '2', '3'},
+  {'4', '5', '6'},
+  {'7', '8', '9'},
+  {'C', '+', '-'},
+  {'*', '/', 'E'}  // 'E' for triggering the calculation
 };
 
 byte rowPins[ROWS] = {3, 4, 5, 6, 7}; // Connect to the row pinouts of the keypad
@@ -42,7 +42,7 @@ void loop() {
     Serial.print("Key Pressed: ");
     Serial.println(key);
     
-    if (key == 'R') {
+    if (key == 'C') {
       // Reset everything when 'R' is pressed
       currentkey = "";
       result = 0;
@@ -98,10 +98,10 @@ void performOperation(int& res, char op, int number) {
     case '-':
       res -= number;
       break;
-    case 'M': // Use 'M' for multiply
+    case '*': // Use 'M' for multiply
       res *= number;
       break;
-    case 'D': // Use 'D' for divide
+    case '/': // Use 'D' for divide
       if (number != 0) {
         res /= number; // Avoid division by zero
       } else {
