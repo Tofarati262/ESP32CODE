@@ -4,18 +4,21 @@
 // Initialize U8g2 library with SSD1306 72x40 display
 U8G2_SSD1306_72X40_ER_F_SW_I2C u8g2(U8G2_R0, /* clock=*/6, /* data=*/5, /* reset=*/U8X8_PIN_NONE);
 
-const byte ROWS = 5; // Five rows
+const byte ROWS = 7; // Five rows
 const byte COLS = 3; // Three columns
 
 char keys[ROWS][COLS] = {
-  {'1', '2', '3'},
-  {'4', '5', '6'},
-  {'7', '8', '9'},
-  {'C', '+', '-'},
-  {'*', '/', 'E'}  // 'E' for triggering the calculation
+
+  {'E', 'C', 'D'},
+  {'+', '-', '*'},
+  {'/', 'q', 'g'},  // New Row 0 (originally Row 1)
+  {'s', 'c', 't'},  // New Row 1 (originally Row 0)
+  {'1', '2', '3'},  // New Row 2 (originally Row 4)
+  {'4', '5', '6'},  // Row 3 (unchanged)
+  {'7', '8', '9'}   // New Row 4 (originally Row 2)
 };
 
-byte rowPins[ROWS] = {3, 4, 5, 6, 7}; // Connect to the row pinouts of the keypad
+byte rowPins[ROWS] = {10,8, 3, 4, 5, 6, 7}; // Connect to the row pinouts of the keypad
 byte colPins[COLS] = {0, 1, 2}; // Connect to the column pinouts of the keypad
 
 Keypad keypad = Keypad(makeKeymap(keys), rowPins, colPins, ROWS, COLS);
