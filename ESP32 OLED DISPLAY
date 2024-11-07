@@ -1,124 +1,120 @@
+#include <Adafruit_GFX.h>
+#include <Adafruit_ST7735.h>
 #include <U8g2lib.h>
-#include <Keypad.h>
 
-// Initialize U8g2 library with SSD1306 72x40 display
+#define TFT_CS 21  // Chip select pin (usually not used for ST7735)
+#define TFT_RST 1  // Reset pin
+#define TFT_DC 20  // Data/Command pin
+#define TFT_MOSI 5
+#define TFT_SCLK 8
+
+const int buttonPin = 3;  // Digital pin connected to button
+int buttonState = HIGH;
+int lastButtonState = HIGH;
+unsigned long lastPressTime = 0;
+const unsigned long debounceDelay = 100;
+const int potPin = 4;  // Pin connected to the potentiometer
+
+int value = 0;
+int mappedValue = 0;
+int lastMappedValue = -1;     // Track last displayed mappedValue
+float smoothedPotValue = -1;  // Store the smoothed potentiometer value
+const int minPotValue = 302;
+const int maxPotValue = 4095;
+bool buttonpressed = false;
+
+
 U8G2_SSD1306_72X40_ER_F_SW_I2C u8g2(U8G2_R0, /* clock=*/6, /* data=*/5, /* reset=*/U8X8_PIN_NONE);
-
-const byte ROWS = 7; // Five rows
-const byte COLS = 3; // Three columns
-
-char keys[ROWS][COLS] = {
-
-  {'E', 'C', 'D'},
-  {'+', '-', '*'},
-  {'/', 'q', 'g'},  // New Row 0 (originally Row 1)
-  {'s', 'c', 't'},  // New Row 1 (originally Row 0)
-  {'1', '2', '3'},  // New Row 2 (originally Row 4)
-  {'4', '5', '6'},  // Row 3 (unchanged)
-  {'7', '8', '9'}   // New Row 4 (originally Row 2)
-};
-
-byte rowPins[ROWS] = {10,8, 3, 4, 5, 6, 7}; // Connect to the row pinouts of the keypad
-byte colPins[COLS] = {0, 1, 2}; // Connect to the column pinouts of the keypad
-
-Keypad keypad = Keypad(makeKeymap(keys), rowPins, colPins, ROWS, COLS);
-
-String currentkey = "";  // To store the current key sequence
-char lastOp = '+';       // To track the last operator
-int result = 0;          // To store the cumulative result
+Adafruit_ST7735 tft = Adafruit_ST7735(TFT_CS, TFT_DC, TFT_MOSI, TFT_SCLK, TFT_RST);
 
 void setup() {
-  // Initialize the display
-  u8g2.begin();
-  u8g2.clearBuffer();
-  u8g2.setFont(u8g2_font_6x10_tr);  // Use a small font
-  
   Serial.begin(9600);
+  u8g2.begin();
+  tft.initR(INITR_BLACKTAB);
+  tft.setRotation(3);
+  tft.fillScreen(ST7735_WHITE);
+  tft.setTextColor(ST7735_BLACK, ST7735_WHITE);
+  tft.setTextSize(1);
+  pinMode(buttonPin, INPUT_PULLUP);
+
+  smoothedPotValue = analogRead(potPin);  // Initial potentiometer value for smoothing
 }
 
 void loop() {
-  // Read the keypad outside of the display update check
-  char key = keypad.getKey(); // Read the key pressed
+  knob();
+  button();
+}
 
-  // Check if a key was pressed
-  if (key) {
-    Serial.print("Key Pressed: ");
-    Serial.println(key);
-    
-    if (key == 'C') {
-      // Reset everything when 'R' is pressed
-      currentkey = "";
-      result = 0;
-      lastOp = '+';
-      displayKey(String(result));
-    } else if (key == 'E') {  // Trigger calculation when 'E' is pressed
-      performCalculation();
-      displayKey(String(result));  // Show the result on the display
-    } else if (currentkey.length() < 10) {
-      // Append other key presses (digits and operators) to the current key
-      currentkey += key;
-      displayKey(currentkey);
+void knob() {
+  int potValue = analogRead(potPin);  // Read the potentiometer value (0-4095)
+
+  // Apply Exponential Moving Average (EMA) smoothing
+ mappedValue = map(potValue, minPotValue, maxPotValue, 0, 360); 
+
+  // Map the smoothed potentiometer value to a range of 0 to 360
+  // Only update display if mappedValue has changed significantly
+  if (mappedValue != lastMappedValue) {
+    Serial.print("Smoothed Potentiometer Value: ");
+    Serial.print(smoothedPotValue);
+    Serial.print(" -> Mapped Value: ");
+    Serial.println(mappedValue);
+
+    drawmenu();                     // Call drawmenu only when there's a significant change
+    lastMappedValue = mappedValue;  // Update last displayed value
+  }
+}
+
+void button() {
+  int reading = digitalRead(buttonPin);
+
+  if (reading == LOW && lastButtonState == HIGH && (millis() - lastPressTime) > debounceDelay) {
+    Serial.println("Button Pressed");
+    lastPressTime = millis();
+    value = (value + 1) % 2;
+    buttonpressed = true;  // Set flag when button is pressed
+    drawmenu();            // Call drawmenu when button is pressed
+  } else {
+    buttonpressed = false;
+  }
+
+  lastButtonState = reading;
+}
+
+void drawmenu() {
+  tft.fillScreen(ST7735_WHITE);
+
+  if (mappedValue == 360) {
+    tft.setTextColor(ST7735_BLACK, ST7735_WHITE);  // Black text on white background
+    tft.setCursor(50, 100);
+    tft.print("Enter");
+
+    tft.setTextColor(ST7735_WHITE, ST7735_BLACK);  // White text on black background
+    tft.setCursor(100, 100);
+    tft.print("Return");
+
+    if (buttonpressed == true) {
+      drawfirstmenu();
+    }
+  } else if (mappedValue < 180) {
+    tft.setTextColor(ST7735_WHITE, ST7735_BLACK);  // White text on black background
+    tft.setCursor(50, 100);
+    tft.print("Enter");
+
+    tft.setTextColor(ST7735_BLACK, ST7735_WHITE);  // Black text on white background
+    tft.setCursor(100, 100);
+    tft.print("Return");
+
+    if (buttonpressed == true) {
+      drawthirdmenu();
     }
   }
 }
 
-// Function to perform arithmetic calculations
-void performCalculation() {
-  String numberStr = "";  // Temporary string to build numbers
-
-  for (int i = 0; i < currentkey.length(); i++) {
-    char c = currentkey.charAt(i);
-
-    // Check if the character is a digit
-    if (isdigit(c)) {
-      numberStr += c;  // Append digit to the number string
-    } else {
-      // If we hit an operator, perform the last operation with the previous number
-      if (numberStr.length() > 0) {
-        int number = numberStr.toInt(); // Convert the number string to an integer
-        performOperation(result, lastOp, number); // Perform the operation
-        numberStr = "";  // Clear the number string for the next number
-      }
-      lastOp = c;  // Update the last operator to the current one
-    }
-  }
-
-  // Handle the last number (after the loop)
-  if (numberStr.length() > 0) {
-    int number = numberStr.toInt();
-    performOperation(result, lastOp, number);
-  }
-
-  currentkey = "";  // Clear currentkey after performing the calculation
+// Define drawfirstmenu and drawthirdmenu if they perform specific tasks
+void drawfirstmenu() {
+  tft.fillScreen(ST7735_BLACK);
 }
 
-// Function to perform an operation
-void performOperation(int& res, char op, int number) {
-  switch (op) {
-    case '+':
-      res += number;
-      break;
-    case '-':
-      res -= number;
-      break;
-    case '*': // Use 'M' for multiply
-      res *= number;
-      break;
-    case '/': // Use 'D' for divide
-      if (number != 0) {
-        res /= number; // Avoid division by zero
-      } else {
-        Serial.println("Error: Division by zero");
-      }
-      break;
-    default:
-      break; // Ignore unknown operators
-  }
-}
-
-// Function to display the key pressed
-void displayKey(String key) {
-  u8g2.clearBuffer();              // Clear the internal memory
-  u8g2.drawStr(5, 10, key.c_str()); // Display the key value below
-  u8g2.sendBuffer();               // Transfer internal memory to the display
+void drawthirdmenu() {
+  tft.fillScreen(ST7735_RED);
 }
